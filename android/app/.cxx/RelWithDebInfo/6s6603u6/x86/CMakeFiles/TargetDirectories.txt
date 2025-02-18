@@ -1,0 +1,2 @@
+C:/Users/furat/my_first_app/android/app/.cxx/RelWithDebInfo/6s6603u6/x86/CMakeFiles/edit_cache.dir
+C:/Users/furat/my_first_app/android/app/.cxx/RelWithDebInfo/6s6603u6/x86/CMakeFiles/rebuild_cache.dir
