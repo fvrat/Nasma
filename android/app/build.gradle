@@ -2,6 +2,8 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
+    id 'com.google.gms.google-services'
+    
 }
 
 android {
@@ -23,7 +25,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.my_first_app"
-        minSdk = flutter.minSdkVersion
+        //minSdk = flutter.minSdkVersion
+        minSdkVersion 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -38,4 +41,20 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+  // Import the Firebase BoM
+  implementation platform('com.google.firebase:firebase-bom:33.9.0')
+
+dependencies {
+    // Import the Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:33.9.0')
+
+    // Add the Firebase SDKs you use
+    implementation 'com.google.firebase:firebase-auth' // Firebase Authentication
+    implementation 'com.google.firebase:firebase-database' // Firebase Realtime Database
+    implementation 'com.google.firebase:firebase-firestore' // Firestore (if used)
+    implementation 'com.google.firebase:firebase-storage' // Firebase Storage (if used)
+}
 }

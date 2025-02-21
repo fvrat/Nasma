@@ -1,23 +1,41 @@
 import 'package:flutter/material.dart';
-import 'screens/homepage.dart'; // Assuming HomeScreen is in homepage.dart
-import 'screens/DashBoard.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'screens/treatment_plan_screen.dart';
 
-void main() {
-  runApp(const MyApp());
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Timezone
+  tz.initializeTimeZones();
+
+  // Initialize local notifications
+  const AndroidInitializationSettings androidInitSettings =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  final InitializationSettings initSettings = InitializationSettings(
+    android: androidInitSettings,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initSettings);
+
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Nasma App',
+      title: 'Treatment Plan',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: HealthDashboard(), // Load HomeScreen as the home page
+      home: TreatmentPlanScreen(patientId: "example_patient_id"),
     );
   }
 }

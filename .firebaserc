@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "nasma-project"
-  }
+    "default": "my-first-app-bece0",
+    "myfirstapp": "my-first-app-bece0"
+  },
+  "targets": {},
+  "etags": {}
 }

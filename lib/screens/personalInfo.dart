@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
+  const PersonalInfoScreen({super.key});
+
   @override
   _PersonalInfoScreenState createState() => _PersonalInfoScreenState();
 }
@@ -343,12 +345,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: updateUserData,
-                child: Text("Save Changes"),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(
                       255, 45, 96, 137), // Blue background for button
                   foregroundColor: Colors.white, // White text color
                 ),
+                child: Text("Save Changes"),
               ),
             ],
           ),
