@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'footer.dart';
+import 'personalInfo.dart';
+import 'homepage.dart';
+import 'connect_patch_screen.dart';
 
 class PersonalInfoScreen extends StatefulWidget {
-  const PersonalInfoScreen({super.key});
+  final String patientId;
+  final String previousPage; // ✅ Track where the user came from
+
+  PersonalInfoScreen({required this.patientId, required this.previousPage});
 
   @override
   _PersonalInfoScreenState createState() => _PersonalInfoScreenState();
@@ -10,72 +17,59 @@ class PersonalInfoScreen extends StatefulWidget {
 
 class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
-  String patientId = "1"; // Default Patient ID
+  late String patientId; // Store the patientId footer
+  int _selectedIndex = 2; // Profile tab is selected footer
 
-  // Controllers for user data
-  final TextEditingController firstNameController = TextEditingController();
-  final TextEditingController lastNameController = TextEditingController();
-  final TextEditingController emergencyController = TextEditingController();
-  final TextEditingController genderController = TextEditingController();
-  final TextEditingController pregnantController = TextEditingController();
-  final TextEditingController allergiesController = TextEditingController();
-  final TextEditingController smokerController = TextEditingController();
-  final TextEditingController birthdayController = TextEditingController();
-  final TextEditingController weightController = TextEditingController();
-  final TextEditingController heightController = TextEditingController();
-
-  String? isPregnant = 'false'; // True/False menu for pregnancy
-  String? isAllergic = 'false'; // True/False menu for allergies
-  String? isSmoker = 'false'; // True/False menu for smoker
-  String? selectedDate; // For storing the birth date
+  final Map<String, TextEditingController> controllers = {
+    "Fname": TextEditingController(),
+    "Lname": TextEditingController(),
+    "EM_phone": TextEditingController(),
+    "Gender": TextEditingController(),
+    "Weight": TextEditingController(),
+    "Height": TextEditingController(),
+    "Date_of_birth": TextEditingController(),
+    "Is_pregnant": TextEditingController(),
+    "Has_allergies": TextEditingController(),
+  };
 
   @override
   void initState() {
     super.initState();
+    patientId = widget.patientId; // Get patientId from HomeScreen
     fetchUserData();
   }
 
+  // ✅ Function to handle back navigation may we need to add all pages
+  void _handleBackNavigation() {
+    if (widget.previousPage == "home") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    } else if (widget.previousPage == "dashboard") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => ConnectPatchScreen()),
+      );
+    } else {
+      Navigator.pop(
+          context); // Default behavior if the previous page is unknown
+    }
+  }
+  //-----------------------------------------------
+
   Future<void> fetchUserData() async {
     try {
-      // Fetch patient data
       DatabaseEvent patientEvent =
           await _database.child("Patient").child(patientId).once();
-      DatabaseEvent historyEvent = await _database
-          .child("Medical_history")
-          .orderByChild("patient_ID")
-          .equalTo(patientId)
-          .once();
-
-      // Fetch Patient Data
       if (patientEvent.snapshot.exists) {
         Map<dynamic, dynamic>? patientData =
             patientEvent.snapshot.value as Map<dynamic, dynamic>?;
-
         if (patientData != null) {
           setState(() {
-            firstNameController.text = patientData['Fname'] ?? "";
-            lastNameController.text = patientData['Lname'] ?? "";
-            emergencyController.text = patientData['EM_phone'] ?? "";
-          });
-        }
-      }
-
-      // Fetch Medical History Data
-      if (historyEvent.snapshot.exists) {
-        Map<dynamic, dynamic>? historyData =
-            (historyEvent.snapshot.value as Map<dynamic, dynamic>?)
-                ?.values
-                .first;
-
-        if (historyData != null) {
-          setState(() {
-            genderController.text = historyData['Gender'] ?? "";
-            isPregnant = historyData['Is_pragnent'] ? 'true' : 'false';
-            isAllergic = historyData['Has_allergies'] ? 'true' : 'false';
-            isSmoker = historyData['Are_you_smoker'] ? 'true' : 'false';
-            String birthDate = historyData['Date_of_birth'] ?? "";
-            weightController.text = historyData['Weight'].toString();
-            heightController.text = historyData['Height'].toString();
+            controllers.forEach((key, controller) {
+              controller.text = patientData[key]?.toString() ?? "";
+            });
           });
         }
       }
@@ -84,277 +78,173 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     }
   }
 
-  Future<void> updateUserData() async {
-    try {
-      // Update Patient table (First Name, Last Name, Emergency Number)
-      await _database.child("Patient").child(patientId).update({
-        'Fname': firstNameController.text,
-        'Lname': lastNameController.text,
-        'EM_phone': emergencyController.text,
-      });
-
-      // Update Medical_history table (other fields)
-      DatabaseEvent historyEvent = await _database
-          .child("Medical_history")
-          .orderByChild("patient_ID")
-          .equalTo(patientId)
-          .once();
-
-      if (historyEvent.snapshot.exists) {
-        String key = historyEvent.snapshot.children.first.key!;
-
-        await _database.child("Medical_history").child(key).update({
-          'Gender': genderController.text,
-          'Is_pragnent': isPregnant == 'true',
-          'Has_allergies': isAllergic == 'true',
-          'Are_you_smoker': isSmoker == 'true',
-          'Date_of_birth': int.tryParse(birthdayController.text) ?? 0,
-          'Weight': int.tryParse(weightController.text) ?? 0,
-          'Height': int.tryParse(heightController.text) ?? 0,
-        });
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex) {
+      switch (index) {
+        case 0:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+          break;
+        case 1:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => ConnectPatchScreen()),
+          );
+          break;
+        case 2:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PersonalInfoScreen(
+                  patientId: patientId, previousPage: "personal_info"),
+            ),
+          );
+          break;
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Profile updated successfully!")),
-      );
-    } catch (e) {
-      print("Error updating data: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to update profile.")),
-      );
     }
   }
 
-  // Function to select a birth date
+//------------------------------------Front-end----------------------------------
   Future<void> _selectDate(BuildContext context) async {
-    DateTime? pickedDate = await showDatePicker(
+    DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            primaryColor: Color.fromARGB(255, 102, 118, 170), // Highlight color
+            colorScheme: ColorScheme.light(
+              primary: Color.fromARGB(255, 102, 118, 170),
+            ),
+            dialogBackgroundColor:
+                Colors.white, // Calendar inside background white
+          ),
+          child: child!,
+        );
+      },
     );
-    if (pickedDate != null) {
+    if (picked != null) {
       setState(() {
-        selectedDate =
-            "${pickedDate.day}/${pickedDate.month}/${pickedDate.year}";
-        birthdayController.text = selectedDate!;
+        controllers["Date_of_birth"]!.text =
+            "${picked.year}-${picked.month}-${picked.day}";
       });
     }
+  }
+
+  String getProfileImage() {
+    if (controllers["Gender"]!.text.toLowerCase() == "male") {
+      return 'assets/man.png';
+    } else if (controllers["Gender"]!.text.toLowerCase() == "female") {
+      return 'assets/woman.png';
+    }
+    return 'assets/user.png';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(
-          "Personal Info",
-          style: TextStyle(color: Color.fromARGB(255, 16, 16, 16)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: _handleBackNavigation, // ✅ Use dynamic navigation
         ),
-        backgroundColor: Colors.white, // Set background color to white
       ),
-      backgroundColor: Colors.white, // Set page background to white
-      body: Padding(
+      body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              TextFormField(
-                controller: TextEditingController(text: patientId),
-                decoration: InputDecoration(
-                  labelText: "ID",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
-                readOnly: true, // ID is Read-Only
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color:
+                    Color.fromARGB(255, 254, 255, 255), // Profile circle color
               ),
-              SizedBox(height: 12), // Added space between fields
-              TextFormField(
-                controller: firstNameController,
-                decoration: InputDecoration(
-                  labelText: "First Name",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
+              padding: EdgeInsets.all(4),
+              child: CircleAvatar(
+                radius: 50,
+                backgroundImage: AssetImage(getProfileImage()),
               ),
-              SizedBox(height: 12), // Added space between fields
-              TextFormField(
-                controller: lastNameController,
-                decoration: InputDecoration(
-                  labelText: "Last Name",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
-              ),
-              SizedBox(height: 12), // Added space between fields
-              TextFormField(
-                controller: emergencyController,
-                decoration: InputDecoration(
-                  labelText: "Emergency Number",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
-              ),
-              SizedBox(height: 12), // Added space between fields
-              TextFormField(
-                controller: genderController,
-                decoration: InputDecoration(
-                  labelText: "Gender",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
-              ),
-              SizedBox(height: 12),
-              TextFormField(
-                controller: birthdayController,
-                decoration: InputDecoration(
-                  labelText: "Birthday",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(Icons.calendar_today),
-                    onPressed: () => _selectDate(context),
-                  ),
-                ),
-              ),
-              SizedBox(height: 12), // Added space between fields
-              TextFormField(
-                controller: weightController,
-                decoration: InputDecoration(
-                  labelText: "Weight",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
-              ),
-              SizedBox(height: 12), // Added space between fields
-              TextFormField(
-                controller: heightController,
-                decoration: InputDecoration(
-                  labelText: "Height",
-                  filled: true,
-                  fillColor: Colors.white, // White background for field
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12), // Rounded corners
-                  ),
-                ),
-              ),
-              SizedBox(height: 12), // Added space between fields
-              // True/False question (Pregnancy)
-              Row(
-                children: [
-                  Text("Are you pregnant?"),
-                  Radio<String>(
-                    value: 'true',
-                    groupValue: isPregnant,
-                    onChanged: (value) {
-                      setState(() {
-                        isPregnant = value;
-                      });
-                    },
-                  ),
-                  Text('Yes'),
-                  Radio<String>(
-                    value: 'false',
-                    groupValue: isPregnant,
-                    onChanged: (value) {
-                      setState(() {
-                        isPregnant = value;
-                      });
-                    },
-                  ),
-                  Text('No'),
-                ],
-              ),
-              SizedBox(height: 12), // Added space between fields
-              // True/False question (Allergies)
-              Row(
-                children: [
-                  Text("Do you have any allergies?"),
-                  Radio<String>(
-                    value: 'true',
-                    groupValue: isAllergic,
-                    onChanged: (value) {
-                      setState(() {
-                        isAllergic = value;
-                      });
-                    },
-                  ),
-                  Text('Yes'),
-                  Radio<String>(
-                    value: 'false',
-                    groupValue: isAllergic,
-                    onChanged: (value) {
-                      setState(() {
-                        isAllergic = value;
-                      });
-                    },
-                  ),
-                  Text('No'),
-                ],
-              ),
-              SizedBox(height: 12), // Added space between fields
-              // True/False question (Smoker)
-              Row(
-                children: [
-                  Text("Are you a smoker?"),
-                  Radio<String>(
-                    value: 'true',
-                    groupValue: isSmoker,
-                    onChanged: (value) {
-                      setState(() {
-                        isSmoker = value;
-                      });
-                    },
-                  ),
-                  Text('Yes'),
-                  Radio<String>(
-                    value: 'false',
-                    groupValue: isSmoker,
-                    onChanged: (value) {
-                      setState(() {
-                        isSmoker = value;
-                      });
-                    },
-                  ),
-                  Text('No'),
-                ],
-              ),
-              SizedBox(height: 12), // Added space between fields
-              // Birth date picker
+            ),
 
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: updateUserData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromARGB(
-                      255, 45, 96, 137), // Blue background for button
-                  foregroundColor: Colors.white, // White text color
+            SizedBox(height: 10),
+            Text(
+              "${controllers["Fname"]!.text} ${controllers["Lname"]!.text}",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 20),
+            // Patient ID (Non-editable)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: TextFormField(
+                initialValue: patientId,
+                decoration: InputDecoration(
+                  labelText: "Patient ID",
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                child: Text("Save Changes"),
+                readOnly: true,
               ),
-            ],
-          ),
+            ),
+            // Other Fields
+            ...controllers.entries.map((entry) {
+              bool isDateField = entry.key == "Date_of_birth";
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: TextFormField(
+                  controller: entry.value,
+                  decoration: InputDecoration(
+                    labelText: entry.key.replaceAll('_', ' '),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    suffixIcon: isDateField
+                        ? IconButton(
+                            icon: Icon(Icons.calendar_today),
+                            onPressed: () => _selectDate(context),
+                          )
+                        : null,
+                  ),
+                  readOnly: isDateField,
+                  onTap: isDateField ? () => _selectDate(context) : null,
+                ),
+              );
+            }).toList(),
+            SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      Color.fromARGB(255, 102, 118, 170), // Button color
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Text(
+                  "Save Changes",
+                  style:
+                      TextStyle(color: Colors.white), // Ensure text is visible
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+      bottomNavigationBar: AppFooter(
+        selectedIndex: _selectedIndex,
+        onItemTapped: (index, _) =>
+            _onItemTapped(index), // Pass navigation handler
+        patientId: patientId, // ✅ Ensure the correct patient ID is passed
       ),
     );
   }
