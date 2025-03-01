@@ -4,8 +4,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 class HealthDashboard extends StatefulWidget {
-  const HealthDashboard({super.key});
-
   @override
   _HealthDashboardState createState() => _HealthDashboardState();
 }
@@ -83,24 +81,30 @@ class _HealthDashboardState extends State<HealthDashboard> {
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: DropdownButton<String>(
-              value: selectedMonth,
-              items: <String>[
-                'This Month',
-                '1 Month Ago',
-                '2 Months Ago',
-                '3 Months Ago'
-              ].map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(value),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                setState(() {
-                  selectedMonth = newValue!;
-                });
-              },
+            child: Theme(
+              data: Theme.of(context).copyWith(
+                canvasColor: Colors
+                    .white, // Set the background color of the dropdown list
+              ),
+              child: DropdownButton<String>(
+                value: selectedMonth,
+                items: <String>[
+                  'This Month',
+                  '1 Month Ago',
+                  '2 Months Ago',
+                  '3 Months Ago'
+                ].map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    selectedMonth = newValue!;
+                  });
+                },
+              ),
             ),
           ),
           Padding(
@@ -308,11 +312,14 @@ class _HealthDashboardState extends State<HealthDashboard> {
                       showTitles: true,
                       reservedSize: 40,
                       getTitlesWidget: (double value, TitleMeta meta) {
-                        return Transform.rotate(
-                          angle: -1.5708, // Rotate text vertically
-                          child: Text(
-                            xLabels[value.toInt()],
-                            style: TextStyle(fontSize: 10),
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          child: Transform.rotate(
+                            angle: -1.5708, // Rotate text vertically
+                            child: Text(
+                              xLabels[value.toInt()],
+                              style: TextStyle(fontSize: 10),
+                            ),
                           ),
                         );
                       },
