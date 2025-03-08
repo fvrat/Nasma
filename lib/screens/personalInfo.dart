@@ -9,7 +9,7 @@ class PersonalInfoScreen extends StatefulWidget {
   final String patientId;
   final String previousPage; // ✅ Track where the user came from
 
-  PersonalInfoScreen({required this.patientId, required this.previousPage});
+  const PersonalInfoScreen({super.key, required this.patientId, required this.previousPage});
 
   @override
   _PersonalInfoScreenState createState() => _PersonalInfoScreenState();
@@ -18,7 +18,7 @@ class PersonalInfoScreen extends StatefulWidget {
 class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   late String patientId; // Store the patientId footer
-  int _selectedIndex = 2; // Profile tab is selected footer
+  final int _selectedIndex = 2; // Profile tab is selected footer
 
   final Map<String, TextEditingController> controllers = {
     "Fname": TextEditingController(),
@@ -119,9 +119,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             primaryColor: Color.fromARGB(255, 102, 118, 170), // Highlight color
             colorScheme: ColorScheme.light(
               primary: Color.fromARGB(255, 102, 118, 170),
-            ),
-            dialogBackgroundColor:
-                Colors.white, // Calendar inside background white
+            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white), // Calendar inside background white
           ),
           child: child!,
         );
@@ -216,7 +214,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                   onTap: isDateField ? () => _selectDate(context) : null,
                 ),
               );
-            }).toList(),
+            }),
             SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

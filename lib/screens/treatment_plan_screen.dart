@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:firebase_database/firebase_database.dart';
 
 class TreatmentPlanScreen extends StatefulWidget {
   final String patientId;
@@ -14,89 +17,106 @@ class TreatmentPlanScreen extends StatefulWidget {
 class _TreatmentPlanScreenState extends State<TreatmentPlanScreen> {
   TextEditingController medicationController = TextEditingController();
   TextEditingController dosageController = TextEditingController();
-  List<TimeOfDay> selectedTimes = [];
+  List<TimeOfDay> intakeTimes = [];
 
   bool isLoading = false;
-  bool showMore = false;
-  String patientName = "John Doe"; // Simulated data
+  String patientName = "Furat Alfarsi";
   int age = 30;
   int actScore = 18;
+
+  final DatabaseReference _databaseRef = FirebaseDatabase.instance.ref();
 
   @override
   void initState() {
     super.initState();
-    NotificationService.initialize();
-    // Simulated Treatment Data
     medicationController.text = "Budesonide/Formoterol (ICS/LABA)";
     dosageController.text = "1 inhalation twice daily";
+    NotificationService.initialize();
+    fetchTreatmentPlan();
   }
 
-  bool isButtonEnabled() {
-    return medicationController.text.isNotEmpty &&
-        dosageController.text.isNotEmpty &&
-        selectedTimes.isNotEmpty;
-  }
-
-  Future<void> approveAndSend() async {
-    if (!isButtonEnabled()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please complete all fields before approving.")),
-      );
-      return;
-    }
-
-    // Show confirmation dialog
-    showDialog(
+  void _addIntakeTime() async {
+    TimeOfDay? pickedTime = await showTimePicker(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Confirm Approval"),
-        content: Text(
-            "Are you sure you want to approve and send this treatment plan?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              scheduleNotifications();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(
-                        "Treatment Plan Approved & Notifications Scheduled!")),
-              );
-            },
-            child: Text("Approve & Send"),
-          ),
-        ],
-      ),
+      initialTime: TimeOfDay.now(),
     );
+    if (pickedTime != null) {
+      setState(() {
+        intakeTimes.add(pickedTime);
+      });
+    }
   }
 
-  void scheduleNotifications() {
-    for (int i = 0; i < selectedTimes.length; i++) {
-      final DateTime now = DateTime.now();
-      DateTime scheduledTime = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        selectedTimes[i].hour,
-        selectedTimes[i].minute,
-      );
+  void _removeIntakeTime(int index) {
+    setState(() {
+      intakeTimes.removeAt(index);
+    });
+  }
 
-      if (scheduledTime.isBefore(now)) {
-        scheduledTime = scheduledTime.add(Duration(days: 1));
-      }
+  Future<void> _approveTreatmentPlan() async {
+    await NotificationService.cancelAllNotifications();
 
-      NotificationService.scheduleNotification(
+    for (int i = 0; i < intakeTimes.length; i++) {
+      await NotificationService.scheduleDailyNotification(
         id: i,
         title: "Medication Reminder",
         body:
-            "It's time to take your ${medicationController.text} (${dosageController.text}).",
-        scheduledTime: scheduledTime,
+            "Time to take ${medicationController.text} - ${dosageController.text}",
+        timeOfDay: intakeTimes[i],
       );
     }
+
+    await _saveTreatmentPlanToFirebase();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Treatment Plan Approved & Reminders Set!")),
+    );
+  }
+
+  Future<void> _saveTreatmentPlanToFirebase() async {
+    final treatmentPlanData = {
+      'ACT': actScore,
+      'dosage': dosageController.text,
+      'name': medicationController.text,
+      'intakeTimes': intakeTimes.map((time) => time.format(context)).toList(),
+      'isApproved': true,
+      'stepNum': '1',
+    };
+
+    await _databaseRef
+        .child('TreatmentPlans')
+        .child(widget.patientId)
+        .set(treatmentPlanData);
+  }
+
+  Future<void> fetchTreatmentPlan() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    DataSnapshot snapshot = await _databaseRef
+        .child('TreatmentPlans')
+        .child(widget.patientId)
+        .get();
+
+    if (snapshot.snapshot.exists) {
+      var data = snapshot.snapshot.value as Map<dynamic, dynamic>;
+      setState(() {
+        medicationController.text = data['name'];
+        dosageController.text = data['dosage'];
+        actScore = data['ACT'];
+        intakeTimes = (data['intakeTimes'] as List<dynamic>).map((time) {
+          var parts = time.split(' ');
+          return TimeOfDay(
+              hour: int.parse(parts[0].split(':')[0]),
+              minute: int.parse(parts[0].split(':')[1]));
+        }).toList();
+      });
+    }
+
+    setState(() {
+      isLoading = false;
+    });
   }
 
   @override
@@ -106,29 +126,25 @@ class _TreatmentPlanScreenState extends State<TreatmentPlanScreen> {
       body: SafeArea(
         child: isLoading
             ? Center(child: CircularProgressIndicator())
-            : AnimatedOpacity(
-                opacity: 1.0,
-                duration: Duration(seconds: 1),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 20),
-                    _buildEditableFields(),
-                    const Spacer(),
-                    _buildApproveButton(),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 20),
+                  _buildEditableFields(),
+                  const Spacer(),
+                  _buildApproveButton(),
+                  const SizedBox(height: 20),
+                ],
               ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: showMore ? 320 : 260,
+      height: 260,
       decoration: BoxDecoration(
         color: Color(0xFF6676AA),
         borderRadius: const BorderRadius.only(
@@ -136,54 +152,62 @@ class _TreatmentPlanScreenState extends State<TreatmentPlanScreen> {
           bottomRight: Radius.circular(40),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(
-            "TREATMENT PLAN RECOMMENDATION",
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            "Name: $patientName\nAge: $age\nACT Score = $actScore",
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          InkWell(
-            onTap: () {
-              setState(() {
-                showMore = !showMore;
-              });
-            },
-            child: Text(
-              showMore ? "Show Less" : "Show More",
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                color: Colors.greenAccent,
-                fontWeight: FontWeight.w500,
-              ),
+          Positioned(
+            top: 20,
+            left: 20,
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white, size: 28),
+              onPressed: () {
+                Navigator.pop(context);
+              },
             ),
           ),
-          if (showMore)
-            Padding(
-              padding: EdgeInsets.only(top: 10),
-              child: Text(
-                "Additional patient details:\n- Weight: 70kg\n- Height: 170cm\n- Known allergies: None",
+          Positioned(
+            top: 20,
+            right: 20,
+            child: Image.asset("assets/star.png", width: 40, height: 40),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "TREATMENT PLAN RECOMMENDATION",
                 style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  color: Colors.white70,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 1,
                 ),
                 textAlign: TextAlign.center,
               ),
-            ),
+              const SizedBox(height: 10),
+              Text(
+                "Name: $patientName\nAge: $age\nACT Score = $actScore",
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () {
+                  Navigator.pushNamed(context, '/dashboard');
+                },
+                child: Text(
+                  "Show More",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.greenAccent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -216,63 +240,101 @@ class _TreatmentPlanScreenState extends State<TreatmentPlanScreen> {
   }
 
   Widget _buildTimePicker() {
-    return Column(
-      children: [
-        for (int i = 0; i < selectedTimes.length; i++)
-          ListTile(
-            title: Text("Intake Time: ${selectedTimes[i].format(context)}"),
-            trailing: IconButton(
-              icon: Icon(Icons.delete, color: Colors.red),
-              onPressed: () {
-                setState(() {
-                  selectedTimes.removeAt(i);
-                });
-              },
-            ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Add Intake Time",
+              style: GoogleFonts.poppins(
+                  fontSize: 16, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 5),
+          Wrap(
+            spacing: 10,
+            children: [
+              ...List.generate(
+                intakeTimes.length,
+                (index) => Chip(
+                  label: Text(intakeTimes[index].format(context)),
+                  onDeleted: () => _removeIntakeTime(index),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: _addIntakeTime,
+                child: Text('Add Time'),
+              ),
+            ],
           ),
-        ListTile(
-          title: Text("Add Intake Time"),
-          trailing: Icon(Icons.add),
-          onTap: () async {
-            TimeOfDay? pickedTime = await showTimePicker(
-              context: context,
-              initialTime: TimeOfDay(hour: 8, minute: 0),
-            );
-            if (pickedTime != null) {
-              setState(() {
-                selectedTimes.add(pickedTime);
-              });
-            }
-          },
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildApproveButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Center(
-        child: ElevatedButton(
-          onPressed: isButtonEnabled() ? approveAndSend : null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor:
-                isButtonEnabled() ? Color(0xFF6676AA) : Colors.grey,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
-          ),
-          child: Text(
-            "APPROVE & SEND",
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+    return Center(
+      child: ElevatedButton(
+        onPressed: _approveTreatmentPlan,
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              Color(0xFF4CAF50), // Corrected 'primary' to 'backgroundColor'
+          padding: EdgeInsets.symmetric(vertical: 15, horizontal: 30),
+          textStyle: TextStyle(fontSize: 16),
         ),
+        child: Text("Approve Treatment Plan"),
       ),
     );
+  }
+}
+
+extension on DataSnapshot {
+  get snapshot => null;
+}
+
+class NotificationService {
+  static final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  static void initialize() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _notificationsPlugin.initialize(initializationSettings);
+  }
+
+  static Future<void> scheduleDailyNotification({
+    required int id,
+    required String title,
+    required String body,
+    required TimeOfDay timeOfDay,
+  }) async {
+    final now = DateTime.now();
+    final scheduledDate = DateTime(
+        now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
+
+    await _notificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledDate, tz.local),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'medication_channel',
+          'Medication Reminders',
+          channelDescription: 'Daily medication reminders',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+      matchDateTimeComponents: DateTimeComponents.time,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode:
+          AndroidScheduleMode.exact, // Set the schedule mode to 'exact'
+    );
+  }
+
+  static Future<void> cancelAllNotifications() async {
+    await _notificationsPlugin.cancelAll();
   }
 }

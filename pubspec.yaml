@@ -17,8 +17,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   flutter_vector_icons: ^2.0.0
   flutter_blue_plus: ^1.11.0 # Added for Bluetooth functionality
-  firebase_core:    ^3.11.0  # Required if you decide to use Firebase
-  cloud_firestore:  ^5.6.3  # To store paired devices if needed
+  firebase_core: ^3.12.1  # Required if you decide to use Firebase
+  cloud_firestore: ^5.6.3  # To store paired devices if needed
   permission_handler: ^11.0.1 # Required for Bluetooth permissions on Android/iOS
   #firebase_auth:  ^5.4.2
   firebase_auth: ^5.1.0
@@ -29,7 +29,8 @@ dependencies:
   intl: ^0.20.2
   flutter_local_notifications: ^18.0.1
   timezone: ^0.10.0
-  
+  firebase_messaging: ^15.2.4
+
 #----------------------------------------------
 
 dev_dependencies:

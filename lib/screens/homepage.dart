@@ -8,6 +8,8 @@ import 'footer.dart';
 import 'connect_patch_screen.dart';
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
@@ -31,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String activityAnswer = '';
   String breathAnswer = '';
 //--------------------------------------------------footer------------
-  int _selectedIndex = 0;
+  final int _selectedIndex = 0;
   String patientId = '';
 
   //----------------------------------------------------
@@ -310,8 +312,6 @@ class _HomeScreenState extends State<HomeScreen> {
 //--------------------Asthma Check-in-----------------------------
 
   Future<void> checkAndShowCheckIn(String patientID) async {
-    if (patientID == null) return;
-
     DatabaseReference databaseRef =
         FirebaseDatabase.instance.ref().child("Questions");
 
@@ -638,8 +638,8 @@ class _HomeScreenState extends State<HomeScreen> {
               var doctorId = selectedUserData['Doctor_ID'];
 
               // Fetch data for the selected patient
-              checkAndShowCheckIn(patientId!);
-              fetchTreatmentPlan(patientId!);
+              checkAndShowCheckIn(patientId);
+              fetchTreatmentPlan(patientId);
               fetchDoctorDetails(doctorId);
             });
 
@@ -674,22 +674,17 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           break;
         case 2:
-          if (patientId != null) {
-            print("-------------+++++++ " + patientId);
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PersonalInfoScreen(
-                  patientId: patientId!,
-                  previousPage: "home",
-                ),
+          print("-------------+++++++ " + patientId);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PersonalInfoScreen(
+                patientId: patientId!,
+                previousPage: "home",
               ),
-            );
-          } else {
-            print(
-                "❌ Error: patientId is null, cannot navigate to PersonalInfoScreen!");
-          }
-          break;
+            ),
+          );
+                  break;
       }
     }
   }
@@ -709,7 +704,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(height: screenWidth * 0.04), // Scalable vertical spacing
-        Container(
+        SizedBox(
           height: 160, // Fixed height for the card container
           child: ListView.builder(
             scrollDirection: Axis.horizontal,

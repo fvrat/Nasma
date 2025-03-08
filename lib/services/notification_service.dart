@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 
@@ -8,9 +9,9 @@ class NotificationService {
 
   static Future<void> initialize() async {
     tz.initializeTimeZones();
+
     const AndroidInitializationSettings androidInitSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-
     final InitializationSettings initSettings = InitializationSettings(
       android: androidInitSettings,
     );
@@ -18,31 +19,43 @@ class NotificationService {
     await _notificationsPlugin.initialize(initSettings);
   }
 
-  static Future<void> scheduleNotification({
+  static Future<void> scheduleDailyNotification({
     required int id,
     required String title,
     required String body,
-    required DateTime scheduledTime,
+    required TimeOfDay timeOfDay,
   }) async {
+    final now = DateTime.now();
+    final scheduledDate = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      timeOfDay.hour,
+      timeOfDay.minute,
+    );
+
     await _notificationsPlugin.zonedSchedule(
       id,
       title,
       body,
-      tz.TZDateTime.from(scheduledTime, tz.local),
+      tz.TZDateTime.from(scheduledDate, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'medication_channel', // ID
-          'Medication Reminders', // Name
-          channelDescription: 'Reminders for taking medications',
+          'medication_channel',
+          'Medication Reminders',
+          channelDescription: 'Daily medication reminders',
           importance: Importance.max,
           priority: Priority.high,
         ),
       ),
-      androidScheduleMode:
-          AndroidScheduleMode.exactAllowWhileIdle, // ✅ FIXED PARAMETER
       matchDateTimeComponents: DateTimeComponents.time,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.exact,
     );
+  }
+
+  static Future<void> cancelAllNotifications() async {
+    await _notificationsPlugin.cancelAll();
   }
 }

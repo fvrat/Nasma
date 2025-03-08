@@ -8,7 +8,7 @@ class AppFooter extends StatelessWidget {
   final Function(int, String) onItemTapped; // Accepts patientId
   final String patientId; // Store patientId
 
-  AppFooter({
+  const AppFooter({super.key, 
     required this.selectedIndex,
     required this.onItemTapped,
     required this.patientId,

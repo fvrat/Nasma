@@ -4,6 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 class HealthDashboard extends StatefulWidget {
+  const HealthDashboard({super.key});
+
   @override
   _HealthDashboardState createState() => _HealthDashboardState();
 }
