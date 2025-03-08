@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'personalInfo.dart';
+//import 'personalInfo.dart';
 import 'homepage.dart';
 import 'connect_patch_screen.dart';
 
@@ -8,7 +8,7 @@ class AppFooter extends StatelessWidget {
   final Function(int, String) onItemTapped; // Accepts patientId
   final String patientId; // Store patientId
 
-  const AppFooter({super.key, 
+  AppFooter({
     required this.selectedIndex,
     required this.onItemTapped,
     required this.patientId,

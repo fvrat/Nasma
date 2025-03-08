@@ -4,8 +4,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 class HealthDashboard extends StatefulWidget {
-  const HealthDashboard({super.key});
-
   @override
   _HealthDashboardState createState() => _HealthDashboardState();
 }
@@ -315,7 +313,16 @@ class _HealthDashboardState extends State<HealthDashboard> {
                       reservedSize: 40,
                       getTitlesWidget: (double value, TitleMeta meta) {
                         return SideTitleWidget(
-                          axisSide: meta.axisSide,
+                          meta: meta, // ✅ Required
+                          fitInside: SideTitleFitInsideData(
+                            enabled:
+                                false, // Set to true if you want the text inside the chart
+                            axisPosition: 0, // Position of the title
+                            parentAxisSize: 30, // Adjust based on the axis size
+                            distanceFromEdge:
+                                0, // Adjust spacing from edge if needed
+                          ),
+
                           child: Transform.rotate(
                             angle: -1.5708, // Rotate text vertically
                             child: Text(

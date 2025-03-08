@@ -9,7 +9,7 @@ class PersonalInfoScreen extends StatefulWidget {
   final String patientId;
   final String previousPage; // ✅ Track where the user came from
 
-  const PersonalInfoScreen({super.key, required this.patientId, required this.previousPage});
+  PersonalInfoScreen({required this.patientId, required this.previousPage});
 
   @override
   _PersonalInfoScreenState createState() => _PersonalInfoScreenState();
@@ -18,7 +18,8 @@ class PersonalInfoScreen extends StatefulWidget {
 class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   late String patientId; // Store the patientId footer
-  final int _selectedIndex = 2; // Profile tab is selected footer
+  int _selectedIndex = 2; // Profile tab is selected footer
+  String patientEmail = "Loading...";
 
   final Map<String, TextEditingController> controllers = {
     "Fname": TextEditingController(),
@@ -29,7 +30,7 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     "Height": TextEditingController(),
     "Date_of_birth": TextEditingController(),
     "Is_pregnant": TextEditingController(),
-    "Has_allergies": TextEditingController(),
+    "Has_allergy": TextEditingController(),
   };
 
   @override
@@ -44,12 +45,14 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     if (widget.previousPage == "home") {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
+        MaterialPageRoute(
+            builder: (context) => HomeScreen(userId: widget.patientId)),
       );
     } else if (widget.previousPage == "dashboard") {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => ConnectPatchScreen()),
+        MaterialPageRoute(
+            builder: (context) => ConnectPatchScreen(userId: widget.patientId)),
       );
     } else {
       Navigator.pop(
@@ -60,21 +63,48 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
 
   Future<void> fetchUserData() async {
     try {
+      // ✅ Fetch patient details first
       DatabaseEvent patientEvent =
           await _database.child("Patient").child(patientId).once();
+
       if (patientEvent.snapshot.exists) {
         Map<dynamic, dynamic>? patientData =
             patientEvent.snapshot.value as Map<dynamic, dynamic>?;
+
         if (patientData != null) {
           setState(() {
             controllers.forEach((key, controller) {
               controller.text = patientData[key]?.toString() ?? "";
             });
           });
+
+          // ✅ Fetch the full "users" list
+          DatabaseEvent userEvent = await _database.child("users").once();
+
+          if (userEvent.snapshot.exists) {
+            // 🔍 Debug: Print entire users data
+            print("Users Data from Firebase: ${userEvent.snapshot.value}");
+
+            List<dynamic> usersData = userEvent.snapshot.value as List<dynamic>;
+
+            // ✅ Loop through the list and find matching email
+            for (var user in usersData) {
+              if (user != null && user["id"].toString() == patientId) {
+                setState(() {
+                  patientEmail = user["email"] ?? "No Email Found";
+                });
+
+                print("✅ User Email Found: $patientEmail");
+                break;
+              }
+            }
+          } else {
+            print("❌ No users data found in Firebase.");
+          }
         }
       }
     } catch (e) {
-      print("Error fetching data: $e");
+      print("❌ Error fetching data: $e");
     }
   }
 
@@ -84,13 +114,16 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         case 0:
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => HomeScreen()),
+            MaterialPageRoute(
+                builder: (context) => HomeScreen(userId: widget.patientId)),
           );
           break;
         case 1:
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => ConnectPatchScreen()),
+            MaterialPageRoute(
+                builder: (context) =>
+                    ConnectPatchScreen(userId: widget.patientId)),
           );
           break;
         case 2:
@@ -119,7 +152,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             primaryColor: Color.fromARGB(255, 102, 118, 170), // Highlight color
             colorScheme: ColorScheme.light(
               primary: Color.fromARGB(255, 102, 118, 170),
-            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white), // Calendar inside background white
+            ),
+            dialogBackgroundColor:
+                Colors.white, // Calendar inside background white
           ),
           child: child!,
         );
@@ -130,6 +165,34 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         controllers["Date_of_birth"]!.text =
             "${picked.year}-${picked.month}-${picked.day}";
       });
+    }
+  }
+
+  Future<void> saveChanges() async {
+    try {
+      Map<String, dynamic> updatedData = {};
+
+      controllers.forEach((key, controller) {
+        updatedData[key] = controller.text;
+      });
+
+      await _database.child("Patient").child(patientId).update(updatedData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Changes saved successfully!")),
+      );
+
+      // Navigate back to HomeScreen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) => HomeScreen(userId: widget.patientId)),
+      );
+    } catch (e) {
+      print("Error updating data: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save changes. Try again!")),
+      );
     }
   }
 
@@ -191,6 +254,21 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                 readOnly: true,
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: TextFormField(
+                key: Key(
+                    patientEmail), // Ensures UI updates when email is loaded
+                initialValue: patientEmail,
+                decoration: InputDecoration(
+                  labelText: "Email",
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                readOnly: true, // Prevent user from editing email
+              ),
+            ),
+
             // Other Fields
             ...controllers.entries.map((entry) {
               bool isDateField = entry.key == "Date_of_birth";
@@ -214,15 +292,14 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                   onTap: isDateField ? () => _selectDate(context) : null,
                 ),
               );
-            }),
+            }).toList(),
             SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: saveChanges, // Call saveChanges() when clicked
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      Color.fromARGB(255, 102, 118, 170), // Button color
+                  backgroundColor: const Color(0xFF8699DA),
                   padding: EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -230,8 +307,12 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                 ),
                 child: Text(
                   "Save Changes",
-                  style:
-                      TextStyle(color: Colors.white), // Ensure text is visible
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontFamily: "Nunito",
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

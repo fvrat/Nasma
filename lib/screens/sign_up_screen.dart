@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'sign_up_next_screen.dart';
+import 'sign_in_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -62,34 +64,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
 
       User? user = userCredential.user;
+      await user?.sendEmailVerification(); // Send verification email
 
-      if (user != null) {
-        await user.sendEmailVerification(); // ✅ Send verification email
-        await _auth
-            .signOut(); // ✅ Log user out immediately to prevent unverified login
+      setState(() {
+        emailSent = true; // Update UI to show "Verification Sent" message
+      });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Verification email sent! Check your inbox.")),
-        );
+      String userId = idController.text.trim();
 
-        setState(() {
-          emailSent = true; // ✅ Update UI to show "Verification Sent" message
-        });
+      await _database.child("users").child(userId).set({
+        "email": emailController.text.trim(),
+        "id": userId,
+        "firstName": firstNameController.text.trim(),
+        "lastName": lastNameController.text.trim(),
+        "phone": int.tryParse(phoneController.text.trim()) ?? 0,
+        "emailVerified": false, // Track verification status
+      });
 
-        String userId = idController.text.trim();
-
-        await _database.child("users").child(userId).set({
-          "email": emailController.text.trim(),
-          "id": userId,
-          "firstName": firstNameController.text.trim(),
-          "lastName": lastNameController.text.trim(),
-          "phone": int.tryParse(phoneController.text.trim()) ?? 0,
-          "emailVerified": false, // ✅ Track verification status
-        });
-
-        _showVerificationDialog(userId);
-      }
+      // Show a dialog asking the user to verify email
+      _showVerificationDialog(userId);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: ${e.toString()}")),
@@ -100,21 +93,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
   void _showVerificationDialog(String userId) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismissing without verification
+      barrierDismissible: false, // User can't dismiss the dialog
       builder: (context) => AlertDialog(
         title: const Text("Verify Your Email"),
         content: const Text(
-            "A verification email has been sent. Please check your inbox and verify your account."),
+            "A verification email has been sent to your email address. Please check your inbox and verify your account."),
         actions: [
           TextButton(
             onPressed: () async {
-              await FirebaseAuth.instance.currentUser
-                  ?.reload(); // ✅ Refresh user data
-              User? user = FirebaseAuth.instance.currentUser;
-
-              if (user != null && user.emailVerified) {
-                print("✅ Email is verified!");
-
+              await _auth.currentUser?.reload(); // Reload user info
+              if (_auth.currentUser?.emailVerified ?? false) {
                 // Update database to mark email as verified
                 await _database.child("users").child(userId).update({
                   "emailVerified": true,
@@ -133,20 +121,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("❌ Email not verified yet! Try again.")),
+                  const SnackBar(content: Text("Email not verified yet!")),
                 );
               }
             },
             child: const Text("I've Verified My Email"),
           ),
           TextButton(
-            onPressed: () async {
-              await FirebaseAuth.instance.currentUser
-                  ?.sendEmailVerification(); // ✅ Resend verification email
+            onPressed: () {
+              _auth.currentUser?.sendEmailVerification(); // Resend email
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text("✅ Verification email sent again!")),
+                const SnackBar(content: Text("Verification email sent again!")),
               );
             },
             child: const Text("Resend Email"),
@@ -156,117 +141,176 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  // Returns the appropriate error text based on the label and its validation state.
+  String? getErrorText(String label) {
+    switch (label) {
+      case "Email":
+        return isEmailValid ? null : "Email cannot be empty";
+      case "Password":
+        return isPasswordValid ? null : "Password cannot be empty";
+      case "ID":
+        return isIdValid ? null : "ID must be numbers only";
+      case "First Name":
+        return isFirstNameValid ? null : "First name must contain only letters";
+      case "Last Name":
+        return isLastNameValid ? null : "Last name must contain only letters";
+      case "Phone Number":
+        return isPhoneValid
+            ? null
+            : "Phone must be 10 digits & start with '05'";
+      default:
+        return null;
+    }
+  }
+
+  // Builds a custom text field with the applied UI constraints and error message.
+  Widget _buildLabeledTextField(TextEditingController controller, String label,
+      {bool isPassword = false, bool isNumeric = false}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller,
+            obscureText: isPassword,
+            keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            onChanged: (_) => _validateFields(),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: const TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+                fontFamily: "Nunito",
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide: const BorderSide(color: Color(0xFF8699DA)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide:
+                    const BorderSide(color: Color(0xFF8699DA), width: 1.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(30),
+                borderSide:
+                    const BorderSide(color: Color(0xFF8699DA), width: 2),
+              ),
+            ),
+          ),
+          if (getErrorText(label) != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0, left: 8.0),
+              child: Text(
+                getErrorText(label)!,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              "SIGN UP",
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                fontFamily: "Nunito",
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Email Field
-            TextField(
-              controller: emailController,
-              onChanged: (_) => _validateFields(),
-              decoration: InputDecoration(
-                labelText: "Email",
-                errorText: isEmailValid ? null : "Email cannot be empty",
-              ),
-            ),
-
-            // Password Field (Hidden Input)
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              onChanged: (_) => _validateFields(),
-              decoration: InputDecoration(
-                labelText: "Password",
-                errorText: isPasswordValid ? null : "Password cannot be empty",
-              ),
-            ),
-
-            // ID Field
-            TextField(
-              controller: idController,
-              keyboardType: TextInputType.number,
-              onChanged: (_) => _validateFields(),
-              decoration: InputDecoration(
-                labelText: "ID",
-                errorText: isIdValid ? null : "ID must be numbers only",
-              ),
-            ),
-
-            // First Name Field
-            TextField(
-              controller: firstNameController,
-              onChanged: (_) => _validateFields(),
-              decoration: InputDecoration(
-                labelText: "First Name",
-                errorText: isFirstNameValid
-                    ? null
-                    : "First name must contain only letters",
-              ),
-            ),
-
-            // Last Name Field
-            TextField(
-              controller: lastNameController,
-              onChanged: (_) => _validateFields(),
-              decoration: InputDecoration(
-                labelText: "Last Name",
-                errorText: isLastNameValid
-                    ? null
-                    : "Last name must contain only letters",
-              ),
-            ),
-
-            // Phone Number Field
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.number,
-              onChanged: (_) => _validateFields(),
-              decoration: InputDecoration(
-                labelText: "Phone Number",
-                errorText: isPhoneValid
-                    ? null
-                    : "Phone must be 10 digits & start with '05'",
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Sign Up Button
-            ElevatedButton(
-              onPressed: isFormValid ? _signUp : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isFormValid
-                    ? const Color(0xFF8699DA) // Enabled (Valid)
-                    : const Color(0xFFB1B1B1), // Disabled (Invalid)
-                padding:
-                    const EdgeInsets.symmetric(vertical: 15, horizontal: 50),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-              child: const Text(
-                "Sign Up",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontFamily: "Nunito",
-                  fontWeight: FontWeight.bold,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Colors.white],
+          ),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "SIGN UP",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: "Nunito",
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      const TextSpan(
+                        text: "Already have an account? ",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 14,
+                          fontFamily: "Nunito",
+                        ),
+                      ),
+                      TextSpan(
+                        text: "Log in",
+                        style: const TextStyle(
+                          color: Color(0xFF8699DA),
+                          fontSize: 14,
+                          fontFamily: "Nunito",
+                          fontWeight: FontWeight.bold,
+                        ),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SignInScreen(),
+                              ),
+                            );
+                          },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildLabeledTextField(emailController, "Email"),
+                _buildLabeledTextField(passwordController, "Password",
+                    isPassword: true),
+                _buildLabeledTextField(idController, "ID", isNumeric: true),
+                _buildLabeledTextField(firstNameController, "First Name"),
+                _buildLabeledTextField(lastNameController, "Last Name"),
+                _buildLabeledTextField(phoneController, "Phone Number",
+                    isNumeric: true),
+                const SizedBox(height: 24),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: isFormValid ? _signUp : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isFormValid
+                          ? const Color(0xFF8699DA)
+                          : const Color(0xFFB1B1B1),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 15, horizontal: 80),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      elevation: 5,
+                    ),
+                    child: const Text(
+                      "Sign Up",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontFamily: "Nunito",
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

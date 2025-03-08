@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'dart:math';
 import 'package:intl/intl.dart';
-import 'finish_screen.dart';
+//import 'finish_screen.dart';
+
+import 'package:testtest/screens/connect_patch_screen.dart';
 
 class MedicalDataScreen extends StatefulWidget {
   final String userId;
@@ -82,14 +84,26 @@ class _MedicalDataScreenState extends State<MedicalDataScreen> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const FinishScreen()),
+      MaterialPageRoute(
+          builder: (context) =>
+              ConnectPatchScreen(userId: widget.userId, showBackButton: false)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Medical Data")),
+      appBar: AppBar(
+        title: const Text(
+          "Medical Data",
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            fontFamily: "Nunito", // Make it bold
+          ),
+        ),
+        automaticallyImplyLeading: false,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -100,81 +114,114 @@ class _MedicalDataScreenState extends State<MedicalDataScreen> {
             const SizedBox(height: 20),
 
             // Gender Selection
+            // Gender Selection
+            Align(
+              alignment: Alignment.centerLeft, // Left align the title
+              child: const Text(
+                "Gender",
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text("Gender: "),
-                Radio<String>(
-                  value: "Female",
-                  groupValue: selectedGender,
-                  onChanged: (value) => setState(() {
-                    selectedGender = value;
-                    validateInputs();
-                  }),
+                Expanded(
+                  child: RadioListTile<String>(
+                    title: const Text("Female"),
+                    value: "Female",
+                    groupValue: selectedGender,
+                    onChanged: (value) => setState(() {
+                      selectedGender = value;
+                      validateInputs();
+                    }),
+                  ),
                 ),
-                const Text("Female"),
-                Radio<String>(
-                  value: "Male",
-                  groupValue: selectedGender,
-                  onChanged: (value) => setState(() {
-                    selectedGender = value;
-                    validateInputs();
-                  }),
+                Expanded(
+                  child: RadioListTile<String>(
+                    title: const Text("Male"),
+                    value: "Male",
+                    groupValue: selectedGender,
+                    onChanged: (value) => setState(() {
+                      selectedGender = value;
+                      validateInputs();
+                    }),
+                  ),
                 ),
-                const Text("Male"),
               ],
             ),
 
-            // Pregnancy Status (Only if Female)
-            if (selectedGender == "Female")
+            const SizedBox(height: 10),
+
+// Pregnancy Status (Only if Female)
+            if (selectedGender == "Female") ...[
+              Align(
+                alignment: Alignment.centerLeft, // Left align the title
+                child: const Text(
+                  "Are you pregnant?",
+                  style: TextStyle(fontSize: 13),
+                ),
+              ),
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Are you pregnant? "),
-                  Radio<bool>(
-                    value: true,
-                    groupValue: isPregnant,
-                    onChanged: (value) => setState(() {
-                      isPregnant = value;
-                      validateInputs();
-                    }),
+                  Expanded(
+                    child: RadioListTile<bool>(
+                      title: const Text("Yes"),
+                      value: true,
+                      groupValue: isPregnant,
+                      onChanged: (value) => setState(() {
+                        isPregnant = value;
+                        validateInputs();
+                      }),
+                    ),
                   ),
-                  const Text("Yes"),
-                  Radio<bool>(
-                    value: false,
-                    groupValue: isPregnant,
-                    onChanged: (value) => setState(() {
-                      isPregnant = value;
-                      validateInputs();
-                    }),
+                  Expanded(
+                    child: RadioListTile<bool>(
+                      title: const Text("No"),
+                      value: false,
+                      groupValue: isPregnant,
+                      onChanged: (value) => setState(() {
+                        isPregnant = value;
+                        validateInputs();
+                      }),
+                    ),
                   ),
-                  const Text("No"),
                 ],
               ),
+            ],
 
-            // Allergy Status
+            const SizedBox(height: 10),
+
+// Allergy Status
+            Align(
+              alignment: Alignment.centerLeft, // Left align the title
+              child: const Text(
+                "Do you have allergies?",
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text("Do you have allergies? "),
-                Radio<bool>(
-                  value: true,
-                  groupValue: hasAllergy,
-                  onChanged: (value) => setState(() {
-                    hasAllergy = value;
-                    validateInputs();
-                  }),
+                Expanded(
+                  child: RadioListTile<bool>(
+                    title: const Text("Yes"),
+                    value: true,
+                    groupValue: hasAllergy,
+                    onChanged: (value) => setState(() {
+                      hasAllergy = value;
+                      validateInputs();
+                    }),
+                  ),
                 ),
-                const Text("Yes"),
-                Radio<bool>(
-                  value: false,
-                  groupValue: hasAllergy,
-                  onChanged: (value) => setState(() {
-                    hasAllergy = value;
-                    validateInputs();
-                  }),
+                Expanded(
+                  child: RadioListTile<bool>(
+                    title: const Text("No"),
+                    value: false,
+                    groupValue: hasAllergy,
+                    onChanged: (value) => setState(() {
+                      hasAllergy = value;
+                      validateInputs();
+                    }),
+                  ),
                 ),
-                const Text("No"),
               ],
             ),
 
@@ -212,15 +259,27 @@ class _MedicalDataScreenState extends State<MedicalDataScreen> {
               onChanged: (_) => validateInputs(),
               decoration: const InputDecoration(labelText: "Height (cm)"),
             ),
-
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: isValid ? _saveMedicalData : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor:
                     isValid ? const Color(0xFF8699DA) : const Color(0xFFB1B1B1),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 15, horizontal: 80),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24)),
+                elevation: 5,
               ),
-              child: const Text("Next"),
+              child: const Text(
+                "Next",
+                style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontFamily: "Nunito",
+                    fontWeight:
+                        FontWeight.bold), // Change to your desired color
+              ),
             ),
           ],
         ),

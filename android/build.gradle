@@ -1,29 +1,27 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 buildscript {
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.1'
+        //classpath 'com.android.tools.build:gradle:7.4.2'
+        classpath 'com.android.tools.build:gradle:8.3.0'
 
-        // Kotlin plugin version update
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0"
-        
-        // Firebase services plugin
-        classpath 'com.google.gms:google-services:4.4.0'
+        classpath 'com.google.gms:google-services:4.4.2'
     }
 }
-
-// Define Kotlin version here for the project
-ext.kotlin_version = '1.9.0'
-
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        jcenter() 
-    }
-}
+// buildscript {
+//     dependencies {
+//         classpath 'com.android.tools.build:gradle:7.4.2'
+//         classpath 'com.google.gms:google-services:4.4.2' // Ensure correct format
+//     }
+// }
 
 rootProject.buildDir = "../build"
 subprojects {

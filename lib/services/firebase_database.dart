@@ -1,8 +1,9 @@
 import 'package:firebase_database/firebase_database.dart';
 
 class FirebaseService {
-  final DatabaseReference _treatmentPlansRef =
-      FirebaseDatabase.instance.ref().child('treatmentPlans');
+  final DatabaseReference _treatmentPlansRef = FirebaseDatabase.instance
+      .ref()
+      .child('TreatmentPlan'); // ✅ Corrected path
 
   // Add Treatment Plan to Firebase
   Future<void> addTreatmentPlan({

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:my_first_app/screens/homepage.dart';
-
 //import 'homepage.dart'; // User's home page
+import 'homepage.dart';
+import 'package:testtest/screens/homepage.dart';
+import 'package:testtest/screens/password_reset_screen.dart';
 import 'patient_list_screen.dart'; // Doctor's patient list page
 import 'sign_up_screen.dart'; // Navigation to Sign Up
 
@@ -42,23 +43,16 @@ class _SignInScreenState extends State<SignInScreen> {
         password: passwordController.text.trim(),
       );
 
-      User? user = _auth.currentUser;
-      await user?.reload(); // ✅ Refresh user data to check verification status
-
+      User? user = userCredential.user;
       if (user != null) {
-        if (!user.emailVerified) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content:
-                    Text("❌ Email not verified! Please check your inbox.")),
-          );
-          setState(() {
-            isLoading = false;
-          });
-          return; // Stop login if email is not verified
-        }
-
         String userEmail = emailController.text.trim().toLowerCase();
+        String firebaseUserId = user.uid; // ✅ Firebase Auth UID
+        String? userId;
+
+        print("🔥 Firebase Auth UID: $firebaseUserId");
+        DatabaseReference usersRef = _database.child("users");
+        DatabaseEvent event =
+            await usersRef.orderByChild("email").equalTo(user.email).once();
 
         // Check if email exists in "Doctors"
         DatabaseEvent doctorEvent = await _database
@@ -66,7 +60,19 @@ class _SignInScreenState extends State<SignInScreen> {
             .orderByChild("email")
             .equalTo(userEmail)
             .once();
+        if (event.snapshot.value != null) {
+          Map<dynamic, dynamic> usersMap =
+              Map<dynamic, dynamic>.from(event.snapshot.value as Map);
 
+          // ✅ Extract the correct database ID
+          usersMap.forEach((key, value) {
+            if (value["email"] == user.email) {
+              userId = value["id"]; // ✅ Get the correct "id"
+            }
+          });
+
+          print("✅ Matched Database User ID: $userId");
+        }
         if (doctorEvent.snapshot.value != null) {
           Navigator.pushReplacement(
             context,
@@ -83,9 +89,11 @@ class _SignInScreenState extends State<SignInScreen> {
             .once();
 
         if (userEvent.snapshot.value != null) {
+          print("Navigating to HomeScreen");
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => HomeScreen()),
+            MaterialPageRoute(
+                builder: (context) => HomeScreen(userId: userId!)),
           );
           return;
         }
@@ -96,7 +104,7 @@ class _SignInScreenState extends State<SignInScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ Email or password is incorrect!")),
+        SnackBar(content: Text("Email or password wrong")),
       );
     } finally {
       setState(() {
@@ -133,7 +141,7 @@ class _SignInScreenState extends State<SignInScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don't have a account? "),
+                  const Text("Don't have an account? "),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -195,26 +203,58 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              Center(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            PasswordResetScreen(), // Navigate to Reset Screen
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    "Forgot Password?",
+                    style: TextStyle(
+                      color: Color(0xFF8699DA), // Same color as Sign Up link
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20), // Add spacing before Sign In button
 
               // Sign In Button
               Center(
                 child: ElevatedButton(
                   onPressed: isFormValid && !isLoading ? _signIn : null,
+                  // style: ElevatedButton.styleFrom(
+                  //   backgroundColor: isFormValid
+                  //       ? const Color(0xFF8699DA)
+                  //       : const Color(0xFFB1B1B1),
+                  //   padding: const EdgeInsets.symmetric(
+                  //       vertical: 15, horizontal: 60),
+                  //   shape: RoundedRectangleBorder(
+                  //       borderRadius: BorderRadius.circular(30)),
+                  // ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isFormValid
                         ? const Color(0xFF8699DA)
                         : const Color(0xFFB1B1B1),
                     padding: const EdgeInsets.symmetric(
-                        vertical: 15, horizontal: 60),
+                        vertical: 15, horizontal: 80),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(30)),
+                        borderRadius: BorderRadius.circular(24)),
+                    elevation: 5,
                   ),
                   child: isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
                           "Sign In",
                           style: TextStyle(
-                            fontSize: 19,
+                            fontSize: 18,
                             fontFamily: "Nunito",
                             fontWeight: FontWeight.bold,
                             color: Colors.white,

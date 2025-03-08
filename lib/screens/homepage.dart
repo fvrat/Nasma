@@ -6,10 +6,14 @@ import 'dart:convert';
 import 'personalInfo.dart';
 import 'footer.dart';
 import 'connect_patch_screen.dart';
+import 'package:testtest/screens/connect_patch_screen.dart';
+import 'package:testtest/services/notification_service.dart';
+import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String userId; // ✅ Add this
 
+  const HomeScreen({Key? key, required this.userId}) : super(key: key);
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
@@ -33,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String activityAnswer = '';
   String breathAnswer = '';
 //--------------------------------------------------footer------------
-  final int _selectedIndex = 0;
+  int _selectedIndex = 0;
   String patientId = '';
 
   //----------------------------------------------------
@@ -41,13 +45,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    uid = widget.userId; // ✅ Use the passed userId
+    print("✅ User ID received in HomeScreen: $uid");
     fetchUserData();
     WidgetsBinding.instance.addPostFrameCallback((_) {});
   }
 
 //------------------------------------------------------------------------------
   Future<void> fetchUserData() async {
-    uid = "1"; // Replace with actual logged-in user ID
+    //uid = "1"; // Replace with actual logged-in user ID
     print("🔍 Starting fetchUserData for UID: $uid");
 //---------------------------------------------------------------------------
     DatabaseReference databaseRef = FirebaseDatabase.instance.ref();
@@ -160,16 +166,122 @@ class _HomeScreenState extends State<HomeScreen> {
     print("Doctor data fetched: ${doctorSnapshot.snapshot.value}");
 
     if (doctorSnapshot.snapshot.value != null) {
-      Map<String, dynamic> doctorData =
-          Map<String, dynamic>.from(doctorSnapshot.snapshot.value as Map);
-
-      setState(() {
-        _doctorName = "${doctorData['Fname']} ${doctorData['Lname']}";
-        _doctorHospital = doctorData['Hospital'];
-        _doctorSpecialty = doctorData['specialty'];
-      });
+      var doctorData = doctorSnapshot.snapshot.value as Map<dynamic, dynamic>?;
+      if (doctorData != null) {
+        setState(() {
+          _doctorName = "${doctorData['Fname']} ${doctorData['Lname']}";
+          _doctorHospital = doctorData['Hospital'] ?? "Unknown Hospital";
+          _doctorSpecialty = doctorData['Speciality'] ?? "Unknown Specialty";
+        });
+      } else {
+        print("Doctor not found in database.");
+      }
+      ;
     }
   }
+
+  // Future<void> fetchTreatmentPlan(String patientId) async {
+  //   print("Fetching treatment plan for patient ID: $patientId");
+  //   DatabaseReference databaseRef = FirebaseDatabase.instance.ref();
+  //   DatabaseEvent patientSnapshot =
+  //       await databaseRef.child('Patient').child(patientId).once();
+
+  //   print(
+  //       "Patient treatment plan data fetched: ${patientSnapshot.snapshot.value}");
+
+  //   if (patientSnapshot.snapshot.value != null) {
+  //     Map<String, dynamic> patientData =
+  //         Map<String, dynamic>.from(patientSnapshot.snapshot.value as Map);
+
+  //     String treatmentPlanId = patientData['Treatmentplan_ID'];
+  //     print("Fetched treatment plan ID: $treatmentPlanId");
+
+  //     DatabaseEvent treatmentPlanSnapshot = await databaseRef
+  //         .child('TreatmentPlan')
+  //         .child(treatmentPlanId)
+  //         .once();
+
+  //     print(
+  //         "Treatment plan data fetched: ${treatmentPlanSnapshot.snapshot.value}");
+
+  //     if (treatmentPlanSnapshot.snapshot.value != null) {
+  //       Map<String, dynamic> treatmentPlanData = Map<String, dynamic>.from(
+  //           treatmentPlanSnapshot.snapshot.value as Map);
+
+  //       if (treatmentPlanData['isApproved'] == true) {
+  //         double ACT = treatmentPlanData['ACT'] ?? 0;
+
+  //         setState(() {
+  //           if (ACT >= 20) {
+  //             healthMessage = "My Asthma is Well Controlled";
+  //             healthImage = 'assets/smileface.png';
+  //           } else {
+  //             healthMessage = "My Asthma is Worsening";
+  //             healthImage = 'assets/face.png';
+  //           }
+  //         });
+
+  //         String stepNum = treatmentPlanData['stepNum'].toString();
+  //         print("Fetched step number: $stepNum");
+
+  //         DatabaseEvent detailsSnapshot =
+  //             await databaseRef.child('Detials').once();
+
+  //         print("Details data fetched: ${detailsSnapshot.snapshot.value}");
+
+  //         if (detailsSnapshot.snapshot.value != null) {
+  //           Map<String, dynamic> allDetails = Map<String, dynamic>.from(
+  //               detailsSnapshot.snapshot.value as Map);
+
+  //           List<Map<String, dynamic>> filteredDetails = [];
+
+  //           allDetails.forEach((key, value) {
+  //             Map<String, dynamic> detail = Map<String, dynamic>.from(value);
+
+  //             if (detail['stepNum'].toString() == stepNum) {
+  //               print("Matching detail found for stepNum: $stepNum");
+
+  //               String time = detail['time'];
+  //               bool isPM = time.toLowerCase().contains("pm");
+
+  //               Color cardColor = isPM ? Color(0xFF6676AA) : Color(0xFFF9FD88);
+  //               String iconPath =
+  //                   isPM ? "assets/night 1.png" : "assets/sun.png";
+  //               Color titleColor = isPM
+  //                   ? Color.fromRGBO(196, 237, 245, 1)
+  //                   : Color.fromRGBO(134, 153, 218, 1);
+  //               Color timeColor = isPM ? Colors.white : Colors.black;
+  //               Color dosageColor = isPM ? Colors.grey[300]! : Colors.black;
+
+  //               filteredDetails.add({
+  //                 "stepNum": stepNum,
+  //                 "title": detail['Name'],
+  //                 "time": detail['time'],
+  //                 "dosage": detail['quantity'],
+  //                 "Frequancy": detail['Freq'],
+  //                 "icon": iconPath,
+  //                 "bgColor": cardColor,
+  //                 "titleColor": titleColor,
+  //                 "timeColor": timeColor,
+  //                 "dosageColor": dosageColor,
+  //               });
+  //             }
+  //           });
+
+  //           print("Final filtered treatment details: $filteredDetails");
+
+  //           setState(() {
+  //             treatmentPlans = filteredDetails;
+  //           });
+  //         }
+  //       } else {
+  //         ScaffoldMessenger.of(context).showSnackBar(
+  //           SnackBar(content: Text("Treatment plan is not approved yet.")),
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
 
   Future<void> fetchTreatmentPlan(String patientId) async {
     print("Fetching treatment plan for patient ID: $patientId");
@@ -200,7 +312,9 @@ class _HomeScreenState extends State<HomeScreen> {
             treatmentPlanSnapshot.snapshot.value as Map);
 
         if (treatmentPlanData['isApproved'] == true) {
-          double ACT = treatmentPlanData['ACT'] ?? 0;
+          double ACT = (treatmentPlanData['ACT'] is int)
+              ? (treatmentPlanData['ACT'] as int).toDouble()
+              : (treatmentPlanData['ACT'] ?? 0.0);
 
           setState(() {
             if (ACT >= 20) {
@@ -212,65 +326,84 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           });
 
-          String stepNum = treatmentPlanData['stepNum'].toString();
-          print("Fetched step number: $stepNum");
-
-          DatabaseEvent detailsSnapshot =
-              await databaseRef.child('Detials').once();
-
-          print("Details data fetched: ${detailsSnapshot.snapshot.value}");
-
-          if (detailsSnapshot.snapshot.value != null) {
-            Map<String, dynamic> allDetails = Map<String, dynamic>.from(
-                detailsSnapshot.snapshot.value as Map);
-
-            List<Map<String, dynamic>> filteredDetails = [];
-
-            allDetails.forEach((key, value) {
-              Map<String, dynamic> detail = Map<String, dynamic>.from(value);
-
-              if (detail['stepNum'].toString() == stepNum) {
-                print("Matching detail found for stepNum: $stepNum");
-
-                String time = detail['time'];
-                bool isPM = time.toLowerCase().contains("pm");
-
-                Color cardColor = isPM ? Color(0xFF6676AA) : Color(0xFFF9FD88);
-                String iconPath =
-                    isPM ? "assets/night 1.png" : "assets/sun.png";
-                Color titleColor = isPM
-                    ? Color.fromRGBO(196, 237, 245, 1)
-                    : Color.fromRGBO(134, 153, 218, 1);
-                Color timeColor = isPM ? Colors.white : Colors.black;
-                Color dosageColor = isPM ? Colors.grey[300]! : Colors.black;
-
-                filteredDetails.add({
-                  "stepNum": stepNum,
-                  "title": detail['Name'],
-                  "time": detail['time'],
-                  "dosage": detail['quantity'],
-                  "Frequancy": detail['Freq'],
-                  "icon": iconPath,
-                  "bgColor": cardColor,
-                  "titleColor": titleColor,
-                  "timeColor": timeColor,
-                  "dosageColor": dosageColor,
-                });
-              }
+          List<TimeOfDay> intakeTimes = [];
+          if (treatmentPlanData.containsKey('intakeTimes')) {
+            intakeTimes = [];
+            (treatmentPlanData['intakeTimes'] as Map<dynamic, dynamic>)
+                .forEach((key, value) {
+              intakeTimes.add(_parseTime(value)); // Convert to TimeOfDay
             });
 
-            print("Final filtered treatment details: $filteredDetails");
+            // ✅ Debugging: Check if times are added
+            print("🕒 Intake Times Parsed: $intakeTimes");
 
-            setState(() {
-              treatmentPlans = filteredDetails;
-            });
+            // ✅ Schedule notifications
+            _scheduleNotifications(intakeTimes, treatmentPlanData['name'],
+                treatmentPlanData['dosage']);
+          } else {
+            print("🚨 No intake times found in treatment plan.");
           }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Treatment plan is not approved yet.")),
-          );
+
+          // ✅ Schedule notifications after fetching the intake times
+          _scheduleNotifications(intakeTimes, treatmentPlanData['name'],
+              treatmentPlanData['dosage']);
         }
       }
+    }
+  }
+
+  TimeOfDay _parseTime(String time) {
+    try {
+      time = time.replaceAll(" ", ""); // Remove spaces
+      bool isPM = time.toLowerCase().contains("pm");
+      bool isAM = time.toLowerCase().contains("am");
+
+      String cleanedTime = time.replaceAll("AM", "").replaceAll("PM", "");
+      List<String> parts = cleanedTime.split(':');
+
+      if (parts.length < 2) throw Exception("Invalid time format");
+
+      int hour = int.tryParse(parts[0]) ?? 0;
+      int minute = int.tryParse(parts[1]) ?? 0;
+
+      if (isPM && hour != 12) hour += 12;
+      if (isAM && hour == 12) hour = 0;
+
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (e) {
+      print("🚨 Error parsing time: $time, Error: $e");
+      return TimeOfDay(hour: 0, minute: 0); // Default if parsing fails
+    }
+  }
+
+  void _scheduleNotifications(
+      List<TimeOfDay> intakeTimes, String medicationName, String dosage) {
+    NotificationService.cancelAll(); // ✅ Clear old notifications
+
+    for (var time in intakeTimes) {
+      DateTime now = DateTime.now();
+      DateTime scheduledTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
+
+      if (scheduledTime.isBefore(now)) {
+        scheduledTime =
+            scheduledTime.add(Duration(days: 1)); // ✅ Move to next day if past
+      }
+
+      print(
+          "📅 Scheduling notification at: ${scheduledTime.toLocal()} for $medicationName");
+
+      NotificationService.scheduleNotification(
+        id: time.hour * 60 + time.minute,
+        title: "Medication Reminder",
+        body: "It's time to take your $medicationName ($dosage)",
+        scheduledTime: scheduledTime,
+      );
     }
   }
 
@@ -312,6 +445,8 @@ class _HomeScreenState extends State<HomeScreen> {
 //--------------------Asthma Check-in-----------------------------
 
   Future<void> checkAndShowCheckIn(String patientID) async {
+    if (patientID == null) return;
+
     DatabaseReference databaseRef =
         FirebaseDatabase.instance.ref().child("Questions");
 
@@ -638,8 +773,8 @@ class _HomeScreenState extends State<HomeScreen> {
               var doctorId = selectedUserData['Doctor_ID'];
 
               // Fetch data for the selected patient
-              checkAndShowCheckIn(patientId);
-              fetchTreatmentPlan(patientId);
+              checkAndShowCheckIn(patientId!);
+              fetchTreatmentPlan(patientId!);
               fetchDoctorDetails(doctorId);
             });
 
@@ -664,27 +799,35 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-                builder: (context) => HomeScreen()), // No patientId needed
+                builder: (context) =>
+                    HomeScreen(userId: widget.userId)), // No patientId needed
           );
           break;
         case 1:
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => ConnectPatchScreen()),
+            MaterialPageRoute(
+                builder: (context) => ConnectPatchScreen(
+                    userId: widget.userId, showBackButton: true)),
           );
           break;
         case 2:
-          print("-------------+++++++ " + patientId);
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PersonalInfoScreen(
-                patientId: patientId!,
-                previousPage: "home",
+          if (patientId != null) {
+            print("-------------+++++++ " + patientId);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PersonalInfoScreen(
+                  patientId: patientId!,
+                  previousPage: "home",
+                ),
               ),
-            ),
-          );
-                  break;
+            );
+          } else {
+            print(
+                "❌ Error: patientId is null, cannot navigate to PersonalInfoScreen!");
+          }
+          break;
       }
     }
   }
@@ -704,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(height: screenWidth * 0.04), // Scalable vertical spacing
-        SizedBox(
+        Container(
           height: 160, // Fixed height for the card container
           child: ListView.builder(
             scrollDirection: Axis.horizontal,

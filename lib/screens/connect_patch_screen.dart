@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart' as flutterBlue;
+import 'package:testtest/screens/homepage.dart';
+import 'sign_up_next_screen.dart';
+import 'package:testtest/services/bluetooth_service.dart';
+import 'package:testtest/screens/medical_data_screen.dart';
 
 class ConnectPatchScreen extends StatefulWidget {
-  const ConnectPatchScreen({super.key});
+  final String userId; // ✅ Add this to receive userId
+  final bool showBackButton; // 🔹 New parameter to control the `<` button
 
+  const ConnectPatchScreen(
+      {Key? key, required this.userId, this.showBackButton = true})
+      : super(key: key);
   @override
   _ConnectPatchScreenState createState() => _ConnectPatchScreenState();
 }
 
 class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
+  final BluetoothService _bluetoothService = BluetoothService();
   List<flutterBlue.ScanResult> scanResults = [];
   List<flutterBlue.BluetoothDevice> connectedDevices = [];
 
@@ -21,9 +30,7 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
 
   // Start Bluetooth scanning
   void _startScan() {
-    flutterBlue.FlutterBluePlus.startScan(timeout: const Duration(seconds: 5));
-
-    flutterBlue.FlutterBluePlus.scanResults.listen((results) {
+    _bluetoothService.scanForDevices().listen((results) {
       setState(() {
         scanResults = results;
       });
@@ -38,25 +45,19 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
 
   // Connect to a Bluetooth device
   void _connectDevice(flutterBlue.BluetoothDevice device) async {
-    try {
-      await device.connect();
-      setState(() {
-        connectedDevices.add(device);
-      });
+    await _bluetoothService.connectToDevice(device);
+    setState(() {
+      connectedDevices.add(device);
+    });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("${device.localName} connected successfully!")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to connect: $e")),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("${device.localName} connected successfully!")),
+    );
   }
 
   // Disconnect from a Bluetooth device
   void _disconnectDevice(flutterBlue.BluetoothDevice device) async {
-    await device.disconnect();
+    await _bluetoothService.disconnectDevice(device);
     setState(() {
       connectedDevices.remove(device);
     });
@@ -86,13 +87,81 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
     );
   }
 
-  // UI for Header
+  // Widget _buildHeader() {
+  //   return Container(
+  //     width: double.infinity,
+  //     height: 240,
+  //     decoration: BoxDecoration(
+  //       color: const Color(0xFF6676AA),
+  //       borderRadius: const BorderRadius.only(
+  //         bottomLeft: Radius.circular(40),
+  //         bottomRight: Radius.circular(40),
+  //       ),
+  //     ),
+  //     child: Stack(
+  //       alignment: Alignment.center,
+  //       children: [
+  //         if (widget.showBackButton) // 🔹 Show only when needed
+  //           Positioned(
+  //             top: 20,
+  //             left: 20,
+  //             child: IconButton(
+  //               icon: Icon(Icons.arrow_back, color: Colors.white, size: 28),
+  //               onPressed: () {
+  //                 Navigator.pushReplacement(
+  //                   context,
+  //                   MaterialPageRoute(
+  //                       builder: (context) =>
+  //                           HomeScreen(userId: widget.userId)),
+  //                 );
+  //               },
+  //             ),
+  //           ),
+  //         Column(
+  //           mainAxisSize: MainAxisSize.min,
+  //           children: [
+  //             Stack(
+  //               alignment: Alignment.center,
+  //               children: [
+  //                 for (int i = 0; i < 5; i++)
+  //                   Container(
+  //                     width: 120 - (i * 10),
+  //                     height: 120 - (i * 10),
+  //                     decoration: BoxDecoration(
+  //                       shape: BoxShape.circle,
+  //                       border: Border.all(
+  //                           color: Colors.white.withOpacity(0.5), width: 0.8),
+  //                     ),
+  //                   ),
+  //                 Image.asset(
+  //                   "assets/blutooth.png",
+  //                   width: 80,
+  //                   height: 80,
+  //                 ),
+  //               ],
+  //             ),
+  //             const SizedBox(height: 15),
+  //             Text(
+  //               "CONNECT PATCH",
+  //               style: GoogleFonts.poppins(
+  //                 fontSize: 22,
+  //                 fontWeight: FontWeight.bold,
+  //                 color: Colors.white,
+  //                 letterSpacing: 1,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
       height: 240,
       decoration: BoxDecoration(
-        color: const Color(0xFF6676AA),
+        color: const Color(0xFF8699DA),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(40),
           bottomRight: Radius.circular(40),
@@ -107,7 +176,22 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
             child: IconButton(
               icon: Icon(Icons.arrow_back, color: Colors.white, size: 28),
               onPressed: () {
-                Navigator.pop(context);
+                if (widget.showBackButton) {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => HomeScreen(userId: widget.userId),
+                    ),
+                  );
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          MedicalDataScreen(userId: widget.userId),
+                    ),
+                  );
+                }
               },
             ),
           ),
@@ -155,7 +239,7 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
   Widget _buildDeviceList() {
     return Expanded(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 15),
         child: scanResults.isEmpty
             ? _buildNoDevicesFound()
             : ListView.builder(
@@ -185,7 +269,7 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
           ElevatedButton(
             onPressed: _startScan,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6676AA),
+              backgroundColor: const Color(0xFF8699DA),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(30),
               ),
@@ -256,7 +340,7 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
               isConnected ? _disconnectDevice(device) : _connectDevice(device);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6676AA),
+              backgroundColor: const Color(0xFF8699DA),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -271,7 +355,6 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
     );
   }
 
-  // UI for Start Button
   Widget _buildStartButton() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -282,21 +365,57 @@ class _ConnectPatchScreenState extends State<ConnectPatchScreen> {
               SnackBar(content: Text("Please connect a patch first!")),
             );
           } else {
-            Navigator.pushNamed(context, '/treatmentPlan');
+            if (!widget.showBackButton) {
+              // 🟢 If `showBackButton == false`, go to Sign Up Next Screen
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      MedicalDataScreen(userId: widget.userId),
+                ),
+              );
+            } else {
+              // 🟢 If `showBackButton == true`, go back to Home Page
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => HomeScreen(userId: widget.userId),
+                ),
+              );
+            }
           }
         },
+        /* */
+        // style: ElevatedButton.styleFrom(
+        //   backgroundColor: const Color(0xFF8699DA),
+        //   shape: RoundedRectangleBorder(
+        //     borderRadius: BorderRadius.circular(30),
+        //   ),
+        //   padding: const EdgeInsets.symmetric(vertical: 14),
+        // ),
+        // child: Text(
+        //   "LET'S START!",
+        //   style: GoogleFonts.poppins(
+        //     fontSize: 16,
+        //     color: Colors.white,
+        //     fontWeight: FontWeight.bold,
+        //   ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6676AA),
+          backgroundColor: const Color(0xFF8699DA), // Same button color
+          padding: const EdgeInsets.symmetric(vertical: 14), // Same padding
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(12), // Same rounded corners
           ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
         ),
-        child: Text("LET'S START!",
-            style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.white,
-                fontWeight: FontWeight.bold)),
+        child: Text(
+          "Done!",
+          style: TextStyle(
+            fontSize: 19, // Same font size
+            fontFamily: "Nunito", // Same font family
+            fontWeight: FontWeight.bold, // Same bold text
+            color: Colors.white, // Same text color
+          ),
+        ),
       ),
     );
   }

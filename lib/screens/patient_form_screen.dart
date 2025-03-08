@@ -218,17 +218,40 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     }
   }
 
+  // void validateInputs() {
+  //   String phone = emergencyPhoneController.text.trim();
+  //   phoneError = phone.length == 10 &&
+  //           phone.startsWith("05") &&
+  //           RegExp(r'^[0-9]+$').hasMatch(phone)
+  //       ? null
+  //       : "Phone must be 10 digits & start with '05'";
+  //   doctorError = selectedDoctorId != null ? null : "Please select a doctor";
+
+  //   setState(() {
+  //     isValid = phoneError == null && doctorError == null;
+  //   });
+  // }
   void validateInputs() {
     String phone = emergencyPhoneController.text.trim();
-    phoneError = phone.length == 10 &&
-            phone.startsWith("05") &&
-            RegExp(r'^[0-9]+$').hasMatch(phone)
+
+    // Validate phone only if user enters something
+    if (phone.isNotEmpty) {
+      phoneError = (phone.length == 10 &&
+              phone.startsWith("05") &&
+              RegExp(r'^[0-9]+$').hasMatch(phone))
+          ? null
+          : "Phone must be 10 digits & start with '05'";
+    } else {
+      phoneError = null; // No error if empty (optional)
+    }
+
+    doctorError = selectedDoctorId != null
         ? null
-        : "Phone must be 10 digits & start with '05'";
-    doctorError = selectedDoctorId != null ? null : "Please select a doctor";
+        : "Please select a doctor"; // Only doctor is required
 
     setState(() {
-      isValid = phoneError == null && doctorError == null;
+      isValid = doctorError ==
+          null; // "Next" button enabled only when doctor is selected
     });
   }
 
@@ -239,12 +262,12 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       "Patient_ID": widget.userId,
       "Fname": widget.firstName,
       "Lname": widget.lastName,
-      "EM_phone": int.tryParse(emergencyPhoneController.text.trim()) ?? 0,
-      "Doctor_ID": selectedDoctorId, // Store doctor selection
-      "Guardian_ID": widget.isDependent
-          ? widget.userId
-          : "", // Guardian ID is empty for normal patients
-      "Treatmentplan_ID": "", // Always empty
+      "EM_phone": emergencyPhoneController.text.trim().isNotEmpty
+          ? int.tryParse(emergencyPhoneController.text.trim()) ?? 0
+          : "", // Store null if empty
+      "Doctor_ID": selectedDoctorId, // Required doctor selection
+      "Guardian_ID": widget.isDependent ? widget.userId : "",
+      "Treatmentplan_ID": "",
     });
 
     Navigator.pushReplacement(
@@ -255,10 +278,42 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     );
   }
 
+  // void _savePatientData() async {
+  //   if (!isValid) return;
+
+  //   await _database.child("Patient").child(widget.userId).update({
+  //     "Patient_ID": widget.userId,
+  //     "Fname": widget.firstName,
+  //     "Lname": widget.lastName,
+  //     "EM_phone": int.tryParse(emergencyPhoneController.text.trim()) ?? 0,
+  //     "Doctor_ID": selectedDoctorId, // Store doctor selection
+  //     "Guardian_ID": widget.isDependent
+  //         ? widget.userId
+  //         : "", // Guardian ID is empty for normal patients
+  //     "Treatmentplan_ID": "", // Always empty
+  //   });
+
+  //   Navigator.pushReplacement(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (context) => MedicalDataScreen(userId: widget.userId),
+  //     ),
+  //   );
+  // }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add Information")),
+      appBar: AppBar(
+        title: const Text(
+          "Add Your Information",
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            fontFamily: "Nunito", // Make it bold
+          ),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -289,14 +344,41 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             const SizedBox(height: 20),
 
             // Doctor Selection Dropdown
+            // DropdownButtonFormField<String>(
+            //   value: selectedDoctorId,
+            //   hint: const Text("Select Doctor"),
+            //   items: doctors.map((doc) {
+            //     return DropdownMenuItem<String>(
+            //       value: doc["id"], // Store only doctor ID
+            //       child: Text(
+            //         "${doc["Fname"]} ${doc["Lname"]} - ${doc["Hospital"]} | ${doc["Speciality"]} | ${doc["Degree"]}",
+            //       ),
+            //     );
+            //   }).toList(),
+            //   onChanged: (value) {
+            //     setState(() {
+            //       selectedDoctorId = value;
+            //       validateInputs();
+            //     });
+            //   },
+            //   decoration: InputDecoration(errorText: doctorError),
+            // ),
             DropdownButtonFormField<String>(
               value: selectedDoctorId,
               hint: const Text("Select Doctor"),
               items: doctors.map((doc) {
                 return DropdownMenuItem<String>(
-                  value: doc["id"], // Store only doctor ID
-                  child: Text(
-                    "${doc["Fname"]} ${doc["Lname"]} - ${doc["Hospital"]} | ${doc["Speciality"]} | ${doc["Degree"]}",
+                  value: doc["id"],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Name: ${doc["Fname"]} ${doc["Lname"]}",
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      Text("Hospital: ${doc["Hospital"]}"),
+                      Text("Specialty: ${doc["Speciality"]}"),
+                      Text("Degree: ${doc["Degree"]}"),
+                      const Divider(), // Adds a horizontal line between doctors
+                    ],
                   ),
                 );
               }).toList(),
@@ -306,17 +388,63 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                   validateInputs();
                 });
               },
-              decoration: InputDecoration(errorText: doctorError),
+              selectedItemBuilder: (BuildContext context) {
+                return doctors.map<Widget>((doc) {
+                  return Text(
+                    "${doc["Fname"]} ${doc["Lname"]}", // Show only the doctor's name after selection
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  );
+                }).toList();
+              },
+              decoration: InputDecoration(
+                labelText: "Select a Doctor",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                isDense: true, // Removes extra padding
+                errorText:
+                    doctorError, // Error message if doctor is not selected
+              ),
             ),
 
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: isValid ? _savePatientData : null,
+              /*style: ElevatedButton.styleFrom(
+                  backgroundColor: canStart
+                      ? const Color(0xFF8699DA)
+                      : const Color(0xFFB1B1B1),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 15, horizontal: 80),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24)),
+                  elevation: 5,
+                ),
+                child: const Text("Start",
+                    style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.white,
+                        fontFamily: "Nunito",
+                        fontWeight: FontWeight.bold)),
+              ), */
               style: ElevatedButton.styleFrom(
                 backgroundColor:
                     isValid ? const Color(0xFF8699DA) : const Color(0xFFB1B1B1),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 15, horizontal: 80),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24)),
+                elevation: 5,
               ),
-              child: const Text("Next"),
+              child: const Text(
+                "Next",
+                style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontFamily: "Nunito",
+                    fontWeight:
+                        FontWeight.bold), // Change to your desired color
+              ),
             ),
           ],
         ),
