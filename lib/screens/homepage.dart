@@ -1058,87 +1058,140 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+// ----function to retrieve the last 7 days of medication history from Firebase----
+  Future<Map<String, String>> fetchWeeklyProgress(String patientId) async {
+    if (patientId.isEmpty) return {};
+
+    DatabaseReference ref = FirebaseDatabase.instance
+        .ref()
+        .child("Patient")
+        .child(patientId)
+        .child("MedicationHistory");
+
+    DateTime now = DateTime.now();
+    Map<String, String> weeklyData = {};
+
+    for (int i = 6; i >= 0; i--) {
+      DateTime day = now.subtract(Duration(days: i));
+      String formattedDate =
+          "${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}";
+
+      DatabaseEvent snapshot =
+          await ref.orderByChild("date").equalTo(formattedDate).once();
+
+      if (snapshot.snapshot.value != null) {
+        Map<dynamic, dynamic> data =
+            snapshot.snapshot.value as Map<dynamic, dynamic>;
+        bool taken = data.values.any((entry) => entry["status"] == "Taken");
+        bool missed = data.values.any((entry) => entry["status"] == "Missed");
+
+        weeklyData[formattedDate] = taken
+            ? "Taken"
+            : missed
+                ? "Missed"
+                : "Partial"; // If neither taken nor missed, it's partial
+      } else {
+        weeklyData[formattedDate] =
+            "No Data"; // If no records exist for that day
+      }
+    }
+
+    return weeklyData;
+  }
+
+// ----fetches real data and updates the weekly progress ui accordingly-----
   Widget _buildWeeklyProgress(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
 
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: screenWidth * 0.03, // 3% of screen width
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "WEEKLY PROGRESS",
-            style: GoogleFonts.poppins(
-              fontSize: screenWidth *
-                  0.045, // Scalable font size based on screen width
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          SizedBox(
-              height: screenHeight *
-                  0.02), // Dynamically adjust space based on screen height
-          Container(
-            padding: EdgeInsets.all(
-                screenWidth * 0.04), // Padding scaled with screen width
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
-            ),
-            child: Column(
-              children: [
-                Row(
+    return FutureBuilder<Map<String, String>>(
+      future: fetchWeeklyProgress(patientId), // Fetch real data
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator()); // Show loader
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text("No medication history found."));
+        }
+
+        Map<String, String> weeklyProgress = snapshot.data!;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.03),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "WEEKLY PROGRESS",
+                style: GoogleFonts.poppins(
+                  fontSize: screenWidth * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.02),
+              Container(
+                padding: EdgeInsets.all(screenWidth * 0.04),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+                ),
+                child: Column(
                   children: [
-                    Image.asset(
-                      'assets/dosage.png',
-                      width: screenWidth * 0.08, // Scalable image size
-                      height: screenWidth * 0.08, // Scalable image size
+                    Row(
+                      children: [
+                        Image.asset(
+                          'assets/dosage.png',
+                          width: screenWidth * 0.08,
+                          height: screenWidth * 0.08,
+                        ),
+                        SizedBox(width: screenWidth * 0.02),
+                        Text(
+                          "Dosage Track",
+                          style: GoogleFonts.poppins(
+                            fontSize: screenWidth * 0.045,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(
-                        width: screenWidth *
-                            0.02), // Spacing scaled with screen width
-                    Text(
-                      "Dosage Track",
-                      style: GoogleFonts.poppins(
-                        fontSize: screenWidth *
-                            0.045, // Scalable font size based on screen width
-                        fontWeight: FontWeight.w500,
-                      ),
+                    SizedBox(height: screenHeight * 0.02),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: weeklyProgress.entries.map((entry) {
+                        String date = entry.key;
+                        String status = entry.value;
+                        String imagePath = status == "Taken"
+                            ? "assets/true.png"
+                            : status == "Missed"
+                                ? "assets/false.png"
+                                : "assets/partial.png"; // Orange warning for Partial
+
+                        return Column(
+                          children: [
+                            Text(
+                              date,
+                              style: GoogleFonts.poppins(
+                                fontSize: screenWidth * 0.035,
+                              ),
+                            ),
+                            Image.asset(
+                              imagePath,
+                              width: screenWidth * 0.06,
+                              height: screenWidth * 0.06,
+                            ),
+                          ],
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
-                SizedBox(
-                    height: screenHeight *
-                        0.02), // Dynamically adjust space based on screen height
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: List.generate(6, (index) {
-                    bool missed = index % 3 == 0;
-                    return Column(
-                      children: [
-                        Text(
-                          "JAN ${22 + index}",
-                          style: GoogleFonts.poppins(
-                            fontSize: screenWidth * 0.035, // Scalable font size
-                          ),
-                        ),
-                        Image.asset(
-                          missed ? 'assets/false.png' : 'assets/true.png',
-                          width: screenWidth * 0.06, // Scalable image size
-                          height: screenWidth * 0.06, // Scalable image size
-                        ),
-                      ],
-                    );
-                  }),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
